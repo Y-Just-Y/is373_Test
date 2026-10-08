@@ -49,7 +49,7 @@ services:
     <<: *app
     profiles: [qa]
     # Uninitialized reference is never pulled: bootstrap starts only proxy.
-    image: ${QA_IMAGE:-ghcr.io/y-just-y/lwdgy-security-lab:uninitialized}
+    image: ${QA_IMAGE:-ghcr.io/y-just-y/is373_test:uninitialized}
     environment:
       APP_ENV: qa
       RELEASE_COMMIT: ${QA_COMMIT:-uninitialized}
@@ -58,7 +58,7 @@ services:
   app-production:
     <<: *app
     profiles: [production]
-    image: ${PRODUCTION_IMAGE:-ghcr.io/y-just-y/lwdgy-security-lab:uninitialized}
+    image: ${PRODUCTION_IMAGE:-ghcr.io/y-just-y/is373_test:uninitialized}
     environment:
       APP_ENV: production
       RELEASE_COMMIT: ${PRODUCTION_COMMIT:-uninitialized}

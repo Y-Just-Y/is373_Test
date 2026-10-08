@@ -2,7 +2,7 @@
 
 These files deploy the lab on a new Ubuntu 24.04 Droplet. Public DNS records must point `lwdgyasteri.com` and `dev.lwdgyasteri.com` (DNS is case-insensitive) at the new Droplet. Remove stale AAAA records unless the new IPv6 address is configured. DigitalOcean's cloud firewall should permit inbound TCP 22, 80 and 443 only, plus outbound traffic.
 
-The trusted server files live in `/opt/lwdgy-security-lab`, owned by root. Traefik 3.7.14 is pinned by its official multi-platform digest. It uses fixed file routes with separate internal QA and production networks and has no Docker socket mount or dashboard. Only Traefik publishes ports. Each app runs as UID 10001 with a read-only filesystem, no Linux capabilities and no new privileges. Certificates persist in `acme/acme.json`, mode 0600, owned by Traefik's numeric identity. App images come from the public `ghcr.io/y-just-y/lwdgy-security-lab` package by digest; no registry credentials are needed.
+The trusted server files live in `/opt/lwdgy-security-lab`, owned by root. Traefik 3.7.14 is pinned by its official multi-platform digest. It uses fixed file routes with separate internal QA and production networks and has no Docker socket mount or dashboard. Only Traefik publishes ports. Each app runs as UID 10001 with a read-only filesystem, no Linux capabilities and no new privileges. Certificates persist in `acme/acme.json`, mode 0600, owned by Traefik's numeric identity. App images come from the public `ghcr.io/y-just-y/is373_test` package by digest; no registry credentials are needed.
 
 ## Bootstrap and access proof
 
@@ -10,25 +10,25 @@ The trusted server files live in `/opt/lwdgy-security-lab`, owned by root. Traef
 2. Copy the reviewed `deploy/` directory and the two **public** keys to `/root` on the new Droplet. In the existing root SSH session, use the actual public-key filenames and a real certificate contact email:
 
    ```sh
-   bash /root/deploy/bootstrap.sh /root/lab-admin.pub /root/lab-deploy.pub you@example.com
+   bash /root/deploy/bootstrap.sh /root/is373_Test.pub /root/lab-deploy.pub you@example.com
    ```
 
    The bootstrap checks the OS and existing UFW rules. It stops if it finds firewall allowances beyond SSH/HTTP/HTTPS; review any reported rule before proceeding. It installs Docker from its official apt repository, prepares the root-owned deploy helpers, enables fail2ban and schedules updates. It starts only Traefik; absent application containers may return 502 until the first successful deployments. Root SSH is preserved during this stage.
 3. Keep the root session open. From a **second local terminal**, prove the new administrator SSH key and sudo access:
 
    ```sh
-   ssh -i /absolute/path/lab-admin lab-admin@DROPLET_IP
+   ssh -i /absolute/path/is373_Test is373_Test@DROPLET_IP
    sudo -n id
    ```
 
-   The owner-authorized `lab-admin` identity has full, passwordless sudo; its login password is locked. Protect this private key as administrator access. `lab-deploy` has no Docker-group membership, no shell access, and can sudo only the no-argument deploy helper.
+   The owner-authorized `is373_Test` identity has full, passwordless sudo; its login password is locked. Protect this private key as administrator access. `lab-deploy` has no Docker-group membership, no shell access, and can sudo only the no-argument deploy helper.
 4. From that verified administrator SSH session, finalize access controls:
 
    ```sh
    sudo --preserve-env=SSH_CONNECTION /usr/local/sbin/lwdgy-lab-finalize-ssh --verified-login-and-sudo
    ```
 
-   This requires `SUDO_USER=lab-admin` and an SSH session. It validates `sshd -t` and effective settings before reloading SSH. It then requires key authentication, disables passwords and root login, allows only the two lab accounts, disables SSH forwarding and fixes the CI forced command. Open a third administrator connection and test a root connection is denied before closing the original sessions.
+   This requires `SUDO_USER=is373_Test` and an SSH session. It validates `sshd -t` and effective settings before reloading SSH. It then requires key authentication, disables passwords and root login, allows only the two lab accounts, disables SSH forwarding and fixes the CI forced command. Open a third administrator connection and test a root connection is denied before closing the original sessions.
 
 ## Restricted deployment
 

@@ -6,6 +6,8 @@ from pathlib import Path
 import stat
 import subprocess
 import sys
+import threading
+import time
 import tempfile
 import unittest
 from unittest import mock
@@ -47,6 +49,12 @@ class RequestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             helper.validate_state({"qa": {"image": "ghcr.io/other/image@" + DIGEST, "commit": SHA}})
 
+    def test_legacy_repository_allowed_only_for_saved_state(self):
+        state = {"production": {"image": helper.LEGACY_IMAGE_PREFIX + OLD_DIGEST, "commit": OLD_SHA}}
+        self.assertEqual(helper.validate_state(state), state)
+        with self.assertRaises(ValueError):
+            helper.parse_request(f"deploy qa {helper.LEGACY_IMAGE_PREFIX + OLD_DIGEST} {OLD_SHA}")
+
     def test_untrusted_files_denied(self):
         for uid, mode in [(1000, stat.S_IFREG | 0o644), (0, stat.S_IFREG | 0o666), (0, stat.S_IFLNK | 0o777)]:
             path = mock.Mock()
@@ -56,6 +64,18 @@ class RequestTests(unittest.TestCase):
 
 
 class RollbackTests(unittest.TestCase):
+    def test_new_deployment_uses_new_registry_with_legacy_saved_production(self):
+        old = {"production": {"image": helper.LEGACY_IMAGE_PREFIX + OLD_DIGEST, "commit": OLD_SHA}}
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            (base / "state.json").write_text(json.dumps(old))
+            with mock.patch.object(helper, "BASE", base), mock.patch.object(helper, "trusted"), mock.patch.object(helper, "run", return_value=SHA) as run, mock.patch.object(helper, "compose"), mock.patch.object(helper, "health"), mock.patch.object(helper, "external_health"):
+                helper.deploy("qa", DIGEST, SHA)
+            run.assert_any_call(["/usr/bin/docker", "pull", helper.IMAGE_PREFIX + DIGEST])
+            state = json.loads((base / "state.json").read_text())
+            self.assertEqual(state["production"], old["production"])
+            self.assertEqual(state["qa"]["image"], helper.IMAGE_PREFIX + DIGEST)
+
     def test_failed_qa_restores_qa_and_preserves_production(self):
         old = {"qa": {"image": helper.IMAGE_PREFIX + OLD_DIGEST, "commit": OLD_SHA},
                "production": {"image": helper.IMAGE_PREFIX + OLD_DIGEST, "commit": OLD_SHA}}
@@ -91,6 +111,35 @@ class RollbackTests(unittest.TestCase):
                     helper.deploy("qa", DIGEST, SHA)
             compose.assert_not_called()
             self.assertFalse((base / "images.env").exists())
+
+
+class DeploymentLockTests(unittest.TestCase):
+    def test_waits_for_real_flock_contention(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lockpath = Path(folder) / "deploy.lock"
+            with lockpath.open("a") as first, lockpath.open("a") as second:
+                helper.fcntl.flock(first, helper.fcntl.LOCK_EX | helper.fcntl.LOCK_NB)
+                released = threading.Event()
+                def release():
+                    time.sleep(0.03)
+                    helper.fcntl.flock(first, helper.fcntl.LOCK_UN)
+                    released.set()
+                thread = threading.Thread(target=release)
+                thread.start()
+                helper.acquire_lock(second, timeout=1)
+                self.assertTrue(released.is_set())
+                thread.join(timeout=1)
+                helper.fcntl.flock(second, helper.fcntl.LOCK_UN)
+
+    def test_lock_wait_has_bounded_timeout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lockpath = Path(folder) / "deploy.lock"
+            with lockpath.open("a") as first, lockpath.open("a") as second:
+                helper.fcntl.flock(first, helper.fcntl.LOCK_EX | helper.fcntl.LOCK_NB)
+                started = time.monotonic()
+                with self.assertRaisesRegex(RuntimeError, "lock is still busy"):
+                    helper.acquire_lock(second, timeout=0.02)
+                self.assertLess(time.monotonic() - started, 0.5)
 
 
 class AppContractTests(unittest.TestCase):

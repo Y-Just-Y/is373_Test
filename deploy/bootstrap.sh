@@ -49,22 +49,22 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
 # Docker remains root-only; neither account is added to the docker group.
-for account in lab-admin lab-deploy; do
+for account in is373_Test lab-deploy; do
   if ! id "$account" >/dev/null 2>&1; then useradd --create-home --shell /bin/bash "$account"; fi
   passwd -l "$account"
 done
-usermod -G sudo lab-admin
+usermod -G sudo is373_Test
 usermod -G "" lab-deploy
 # Administrator has full sudo by explicit owner request; CI has one fixed helper.
 ADMIN_RULE=$(mktemp)
-printf '%s\n' 'lab-admin ALL=(ALL:ALL) NOPASSWD: ALL' > "$ADMIN_RULE"
+printf '%s\n' 'is373_Test ALL=(ALL:ALL) NOPASSWD: ALL' > "$ADMIN_RULE"
 visudo -cf "$ADMIN_RULE"
-install -o root -g root -m 0440 "$ADMIN_RULE" /etc/sudoers.d/lwdgy-lab-admin
+install -o root -g root -m 0440 "$ADMIN_RULE" /etc/sudoers.d/lwdgy-is373_Test
 rm -f "$ADMIN_RULE"
-install -d -o lab-admin -g lab-admin -m 0700 /home/lab-admin/.ssh
-awk '{print $1 " " $2}' "$ADMIN_KEY" > /home/lab-admin/.ssh/authorized_keys
-chown lab-admin:lab-admin /home/lab-admin/.ssh/authorized_keys
-chmod 0600 /home/lab-admin/.ssh/authorized_keys
+install -d -o is373_Test -g is373_Test -m 0700 /home/is373_Test/.ssh
+awk '{print $1 " " $2}' "$ADMIN_KEY" > /home/is373_Test/.ssh/authorized_keys
+chown is373_Test:is373_Test /home/is373_Test/.ssh/authorized_keys
+chmod 0600 /home/is373_Test/.ssh/authorized_keys
 # Root owns the CI home/key, preventing the CI identity from replacing restrictions.
 chown root:root /home/lab-deploy
 chmod 0755 /home/lab-deploy
@@ -171,7 +171,7 @@ fail2ban-client reload
 cd "$BASE"
 env -i PATH="$PATH" DOCKER_CONFIG="$BASE/docker-config" docker compose --env-file "$BASE/images.env" -f "$BASE/compose.yaml" up --detach proxy
 printf '\nBootstrap ready. Keep this root session open.\n'
-printf '%s\n' 'Open a second terminal: ssh -i ADMIN_PRIVATE_KEY lab-admin@DROPLET_IP' 'Then verify: sudo -n id' 'Only from that verified SSH session: sudo /usr/local/sbin/lwdgy-lab-finalize-ssh --verified-login-and-sudo'
+printf '%s\n' 'Open a second terminal: ssh -i ADMIN_PRIVATE_KEY is373_Test@DROPLET_IP' 'Then verify: sudo -n id' 'Only from that verified SSH session: sudo /usr/local/sbin/lwdgy-lab-finalize-ssh --verified-login-and-sudo'
 ufw status numbered
 fail2ban-client status sshd
 systemctl list-timers apt-daily.timer apt-daily-upgrade.timer lwdgy-lab-reboot.timer --no-pager
