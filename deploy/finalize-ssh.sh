@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Invoke only through sudo inside the newly verified lab-admin SSH session.
+# Invoke only through sudo inside the newly verified is373_Test SSH session.
 set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-[[ $EUID == 0 && $# == 1 && $1 == --verified-login-and-sudo && ${SUDO_USER:-} == lab-admin && -n ${SSH_CONNECTION:-} ]] || {
-  echo 'Requires sudo from the verified lab-admin SSH session and explicit --verified-login-and-sudo.' >&2
+[[ $EUID == 0 && $# == 1 && $1 == --verified-login-and-sudo && ${SUDO_USER:-} == is373_Test && -n ${SSH_CONNECTION:-} ]] || {
+  echo 'Requires sudo from the verified is373_Test SSH session and explicit --verified-login-and-sudo.' >&2
   exit 2
 }
-id lab-admin >/dev/null
-[[ -s /home/lab-admin/.ssh/authorized_keys ]] || exit 2
+id is373_Test >/dev/null
+[[ -s /home/is373_Test/.ssh/authorized_keys ]] || exit 2
 CONFIG=/etc/ssh/sshd_config.d/00-lwdgy-lab.conf
 TEMP=$(mktemp)
 cat > "$TEMP" <<'SSH'
@@ -16,7 +16,7 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
 AuthenticationMethods publickey
-AllowUsers lab-admin lab-deploy
+AllowUsers is373_Test lab-deploy
 MaxAuthTries 3
 LoginGraceTime 30
 X11Forwarding no
@@ -56,5 +56,5 @@ for expected in 'forcecommand /usr/local/libexec/lwdgy-lab/ssh-deploy' 'disablef
 done
 systemctl reload ssh
 rm -f "$CONFIG.previous"
-printf '%s\n' 'SSH hardened. Keep current sessions open until a third lab-admin SSH connection succeeds and a root SSH connection is denied.'
+printf '%s\n' 'SSH hardened. Keep current sessions open until a third is373_Test SSH connection succeeds and a root SSH connection is denied.'
 /usr/sbin/sshd -T | awk '$1 == "permitrootlogin" || $1 == "passwordauthentication" || $1 == "authenticationmethods" || $1 == "allowusers" {print}'

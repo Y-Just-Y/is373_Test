@@ -1,0 +1,394 @@
+LWDGY lab host security evidence
+Captured at 2026-10-08T17:47:29.407203+00:00
+Read-only inspection. Addresses, contact email, keys, passwords, client logs and registry credentials omitted.
+
+OS and active kernel
+--------------------
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+
+6.8.0-146-generic
+
+UFW effective rules
+-------------------
+Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 22/tcp                     ALLOW IN    Anywhere
+[ 2] 80/tcp                     ALLOW IN    Anywhere
+[ 3] 443/tcp                    ALLOW IN    Anywhere
+[ 4] 22/tcp (v6)                ALLOW IN    Anywhere (v6)
+[ 5] 80/tcp (v6)                ALLOW IN    Anywhere (v6)
+[ 6] 443/tcp (v6)               ALLOW IN    Anywhere (v6)
+
+Listening TCP/UDP ports (addresses omitted)
+-------------------------------------------
+protocol=udp state=UNCONN local_port=53 bind_scope=loopback process=users:(("systemd-resolve",pid=464,fd=16))
+protocol=udp state=UNCONN local_port=53 bind_scope=loopback process=users:(("systemd-resolve",pid=464,fd=14))
+protocol=tcp state=LISTEN local_port=53 bind_scope=loopback process=users:(("systemd-resolve",pid=464,fd=17))
+protocol=tcp state=LISTEN local_port=22 bind_scope=all_interfaces process=users:(("sshd",pid=1439,fd=3),("systemd",pid=1,fd=94))
+protocol=tcp state=LISTEN local_port=80 bind_scope=all_interfaces process=users:(("docker-proxy",pid=1353,fd=8))
+protocol=tcp state=LISTEN local_port=443 bind_scope=all_interfaces process=users:(("docker-proxy",pid=1371,fd=8))
+protocol=tcp state=LISTEN local_port=53 bind_scope=loopback process=users:(("systemd-resolve",pid=464,fd=15))
+protocol=tcp state=LISTEN local_port=22 bind_scope=all_interfaces process=users:(("sshd",pid=1439,fd=4),("systemd",pid=1,fd=95))
+protocol=tcp state=LISTEN local_port=80 bind_scope=all_interfaces process=users:(("docker-proxy",pid=1357,fd=8))
+protocol=tcp state=LISTEN local_port=443 bind_scope=all_interfaces process=users:(("docker-proxy",pid=1375,fd=8))
+
+Effective SSH settings
+----------------------
+logingracetime 30
+maxauthtries 3
+permitrootlogin no
+pubkeyauthentication yes
+passwordauthentication no
+kbdinteractiveauthentication no
+x11forwarding no
+allowtcpforwarding no
+allowagentforwarding no
+allowusers is373_Test
+allowusers lab-deploy
+authenticationmethods publickey
+permittunnel no
+permituserenvironment no
+
+Effective CI SSH restrictions
+-----------------------------
+permitrootlogin no
+passwordauthentication no
+permittty no
+disableforwarding yes
+forcecommand /usr/local/libexec/lwdgy-lab/ssh-deploy
+allowusers is373_Test
+allowusers lab-deploy
+authenticationmethods publickey
+
+Fail2ban sshd maxretry
+----------------------
+3
+
+Fail2ban sshd bantime
+---------------------
+86400
+
+Fail2ban sshd findtime
+----------------------
+600
+
+Fail2ban sshd actions
+---------------------
+The jail sshd has the following actions:
+ufw
+
+Account group membership
+------------------------
+uid=1002(is373_Test) gid=1002(is373_Test) groups=1002(is373_Test),27(sudo)
+uid=1001(lab-deploy) gid=1001(lab-deploy) groups=1001(lab-deploy)
+
+Administrator sudo rights
+-------------------------
+Matching Defaults entries for is373_Test on lwdgy-security-lab:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty
+
+User is373_Test may run the following commands on lwdgy-security-lab:
+    (ALL : ALL) ALL
+    (ALL : ALL) NOPASSWD: ALL
+
+CI sudo rights
+--------------
+Matching Defaults entries for lab-deploy on lwdgy-security-lab:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty
+
+User lab-deploy may run the following commands on lwdgy-security-lab:
+    (root) NOPASSWD: /usr/local/sbin/lwdgy-lab-deploy ""
+
+Host timezone
+-------------
+Timezone=America/New_York
+
+Effective timer apt-daily.timer
+-------------------------------
+TimersCalendar={ OnCalendar=*-*-* 01:50:00 America/New_York ; next_elapse=Fri 2026-10-09 01:50:00 EDT }
+NextElapseUSecRealtime=Fri 2026-10-09 01:50:00 EDT
+RandomizedDelayUSec=0
+Persistent=no
+ActiveState=active
+
+Effective timer apt-daily-upgrade.timer
+---------------------------------------
+TimersCalendar={ OnCalendar=*-*-* 02:00:00 America/New_York ; next_elapse=Fri 2026-10-09 02:00:00 EDT }
+NextElapseUSecRealtime=Fri 2026-10-09 02:00:00 EDT
+RandomizedDelayUSec=0
+Persistent=no
+ActiveState=active
+
+Effective timer lwdgy-lab-reboot.timer
+--------------------------------------
+TimersCalendar={ OnCalendar=*-*-* 03:30:00 America/New_York ; next_elapse=Fri 2026-10-09 03:30:00 EDT }
+NextElapseUSecRealtime=Fri 2026-10-09 03:30:00 EDT
+RandomizedDelayUSec=0
+Persistent=no
+ActiveState=active
+
+Unattended security upgrade configuration
+-----------------------------------------
+#clear Unattended-Upgrade::Allowed-Origins;
+Unattended-Upgrade::Allowed-Origins { "${distro_id}:${distro_codename}-security"; };
+Unattended-Upgrade::Automatic-Reboot "false";
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+
+Conditional maintenance reboot configuration
+--------------------------------------------
+[Unit]
+Description=Reboot lab only when Ubuntu requests it in maintenance window
+ConditionPathExists=/var/run/reboot-required
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lwdgy-lab-reboot-if-required
+
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+[[ $EUID == 0 && -f /var/run/reboot-required ]] || exit 0
+exec 9>/opt/lwdgy-security-lab/deploy.lock
+if ! flock -n 9; then echo 'Deployment active; defer reboot until next maintenance window.'; exit 0; fi
+if systemctl is-active --quiet apt-daily.service || systemctl is-active --quiet apt-daily-upgrade.service || fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock >/dev/null 2>&1; then
+  echo 'Package update active; defer reboot until next maintenance window.'
+  exit 0
+fi
+echo 'Ubuntu requested a reboot; rebooting in the 03:30 New York maintenance window.'
+systemctl reboot
+
+Docker service binding
+----------------------
+ExecStart={ path=/usr/bin/dockerd ; argv[]=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock ; ignore_errors=no ; start_time=[Thu 2026-10-08 13:42:59 EDT] ; stop_time=[n/a] ; pid=896 ; code=(null) ; status=0/0 }
+
+Docker daemon settings
+----------------------
+No custom daemon.json; default Unix socket.
+
+Container restrictions /lwdgy-security-lab-app-production-1
+-----------------------------------------------------------
+{
+  "name": "/lwdgy-security-lab-app-production-1",
+  "image": "ghcr.io/y-just-y/lwdgy-security-lab@sha256:78b351bdb1351e88d6261d543892966b23d478bbd8a14900b00956f728fe086e",
+  "user": "10001:10001",
+  "state": "running",
+  "health": "healthy",
+  "readonly_rootfs": true,
+  "privileged": false,
+  "cap_drop": [
+    "ALL"
+  ],
+  "cap_add": null,
+  "security_opt": [
+    "no-new-privileges:true"
+  ],
+  "pids_limit": 100,
+  "memory": 134217728,
+  "published_ports": {},
+  "mounts": [],
+  "networks": [
+    "lwdgy-security-lab_production"
+  ]
+}
+
+Container restrictions /lwdgy-security-lab-proxy-1
+--------------------------------------------------
+{
+  "name": "/lwdgy-security-lab-proxy-1",
+  "image": "traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c",
+  "user": "10000:10000",
+  "state": "running",
+  "health": "healthy",
+  "readonly_rootfs": true,
+  "privileged": false,
+  "cap_drop": [
+    "ALL"
+  ],
+  "cap_add": null,
+  "security_opt": [
+    "no-new-privileges:true"
+  ],
+  "pids_limit": 100,
+  "memory": 268435456,
+  "published_ports": {
+    "8080/tcp": [
+      {
+        "host_port": "80"
+      }
+    ],
+    "8443/tcp": [
+      {
+        "host_port": "443"
+      }
+    ]
+  },
+  "mounts": [
+    {
+      "source": "/opt/lwdgy-security-lab/acme",
+      "destination": "/acme",
+      "rw": true
+    },
+    {
+      "source": "/opt/lwdgy-security-lab/dynamic",
+      "destination": "/etc/traefik/dynamic",
+      "rw": false
+    },
+    {
+      "source": "/opt/lwdgy-security-lab/traefik.yaml",
+      "destination": "/etc/traefik/traefik.yaml",
+      "rw": false
+    }
+  ],
+  "networks": [
+    "lwdgy-security-lab_edge",
+    "lwdgy-security-lab_production",
+    "lwdgy-security-lab_qa"
+  ]
+}
+
+Compose network isolation
+-------------------------
+[
+  {
+    "name": "lwdgy-security-lab_edge",
+    "driver": "bridge",
+    "internal": false,
+    "enable_ipv6": false
+  },
+  {
+    "name": "lwdgy-security-lab_production",
+    "driver": "bridge",
+    "internal": true,
+    "enable_ipv6": false
+  },
+  {
+    "name": "lwdgy-security-lab_qa",
+    "driver": "bridge",
+    "internal": true,
+    "enable_ipv6": false
+  }
+]
+
+File ownership/mode /opt/lwdgy-security-lab
+-------------------------------------------
+uid=0 gid=0 mode=0o755
+
+File ownership/mode /opt/lwdgy-security-lab/compose.yaml
+--------------------------------------------------------
+uid=0 gid=0 mode=0o644
+
+File ownership/mode /opt/lwdgy-security-lab/traefik.yaml
+--------------------------------------------------------
+uid=0 gid=0 mode=0o644
+
+File ownership/mode /opt/lwdgy-security-lab/dynamic/routes.yaml
+---------------------------------------------------------------
+uid=0 gid=0 mode=0o644
+
+File ownership/mode /opt/lwdgy-security-lab/acme/acme.json
+----------------------------------------------------------
+uid=10000 gid=10000 mode=0o600
+
+File ownership/mode /usr/local/sbin/lwdgy-lab-deploy
+----------------------------------------------------
+uid=0 gid=0 mode=0o755
+
+File ownership/mode /home/lab-deploy/.ssh/authorized_keys
+---------------------------------------------------------
+uid=0 gid=1001 mode=0o640
+
+Fixed Traefik static and dynamic configuration
+----------------------------------------------
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+entryPoints:
+  web:
+    address: ":8080"
+    http:
+      redirections:
+        entryPoint:
+          to: ":443"
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":8443"
+    http:
+      tls:
+        options: default@file
+  ping:
+    address: ":8082"
+ping:
+  entryPoint: ping
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "[EMAIL REDACTED]"
+      storage: /acme/acme.json
+      httpChallenge:
+        entryPoint: web
+log:
+  level: INFO
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+
+http:
+  routers:
+    qa:
+      rule: "Host(`dev.lwdgyasteri.com`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers]
+      service: qa
+      tls: {certResolver: letsencrypt}
+    production:
+      rule: "Host(`lwdgyasteri.com`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers]
+      service: production
+      tls: {certResolver: letsencrypt}
+  services:
+    qa:
+      loadBalancer:
+        servers: [{url: "http://app-qa:8080"}]
+    production:
+      loadBalancer:
+        servers: [{url: "http://app-production:8080"}]
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: no-referrer
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        customResponseHeaders:
+          Server: ""
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true

@@ -99,11 +99,11 @@ jobs:
       - name: Build the exact commit
         run: |
           set -euo pipefail
-          image="ghcr.io/y-just-y/lwdgy-security-lab:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          image="ghcr.io/y-just-y/is373_test:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           printf 'IMAGE_REF=%s\n' "$image" >> "$GITHUB_ENV"
           docker build --pull \
             --build-arg "RELEASE_COMMIT=$GITHUB_SHA" \
-            --label "org.opencontainers.image.source=https://github.com/Y-Just-Y/lwdgy-security-lab" \
+            --label "org.opencontainers.image.source=https://github.com/Y-Just-Y/is373_Test" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --tag "$image" .
       - name: Verify the container runs with restricted privileges
@@ -145,7 +145,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/main') &&
-          github.repository == 'Y-Just-Y/lwdgy-security-lab'
+          github.repository == 'Y-Just-Y/is373_Test'
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -153,7 +153,7 @@ jobs:
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker push "$IMAGE_REF"
           reference=$(docker image inspect "$IMAGE_REF" --format '{{index .RepoDigests 0}}')
-          [[ "$reference" =~ ^ghcr.io/y-just-y/lwdgy-security-lab@sha256:[a-f0-9]{64}$ ]]
+          [[ "$reference" =~ ^ghcr.io/y-just-y/is373_test@sha256:[a-f0-9]{64}$ ]]
           digest=${reference##*@}
           built_id=$(docker image inspect "$IMAGE_REF" --format '{{.Id}}')
           docker logout ghcr.io
@@ -178,7 +178,7 @@ jobs:
     if: >-
       github.event_name != 'pull_request' &&
       (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/main') &&
-      github.repository == 'Y-Just-Y/lwdgy-security-lab'
+      github.repository == 'Y-Just-Y/is373_Test'
     runs-on: ubuntu-24.04
     permissions: {}
     environment:

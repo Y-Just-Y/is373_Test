@@ -12,7 +12,9 @@ import tempfile
 import time
 
 BASE = Path("/opt/lwdgy-security-lab")
-IMAGE_PREFIX = "ghcr.io/y-just-y/lwdgy-security-lab@"
+IMAGE_PREFIX = "ghcr.io/y-just-y/is373_test@"
+# Only root-owned saved state may reference the pre-rename registry for rollback.
+LEGACY_IMAGE_PREFIX = "ghcr.io/y-just-y/lwdgy-security-lab@"
 REQUEST = re.compile(r"deploy (qa|production) (sha256:[a-f0-9]{64}) ([a-f0-9]{40})")
 ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "DOCKER_CONFIG": str(BASE / "docker-config")}
 
@@ -57,9 +59,12 @@ def validate_state(state):
     for environment, release in state.items():
         if not isinstance(release, dict) or set(release) != {"image", "commit"}:
             raise ValueError("Invalid saved release")
-        parse_request(f"deploy {environment} {release['image'].removeprefix(IMAGE_PREFIX)} {release['commit']}")
-        if not release["image"].startswith(IMAGE_PREFIX):
+        image = release["image"]
+        prefix = next((candidate for candidate in (IMAGE_PREFIX, LEGACY_IMAGE_PREFIX)
+                       if isinstance(image, str) and image.startswith(candidate)), None)
+        if prefix is None:
             raise ValueError("Invalid saved image repository")
+        parse_request(f"deploy {environment} {image.removeprefix(prefix)} {release['commit']}")
     return state
 
 
@@ -101,12 +106,25 @@ def external_health(environment, commit):
     raise RuntimeError("HTTPS router/certificate/revision verification failed")
 
 
+def acquire_lock(lock, timeout=300):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("Deployment lock is still busy after the allowed wait") from None
+            time.sleep(min(0.25, remaining))
+
+
 def deploy(environment, digest, commit):
     for path in [BASE, BASE / "compose.yaml", BASE / "traefik.yaml", BASE / "dynamic",
                  BASE / "dynamic/routes.yaml", BASE / "images.env", BASE / "state.json", BASE / "docker-config"]:
         trusted(path)
     with (BASE / "deploy.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        acquire_lock(lock)
         old_state = validate_state(json.loads((BASE / "state.json").read_text()))
         image = IMAGE_PREFIX + digest
         run(["/usr/bin/docker", "pull", image])
