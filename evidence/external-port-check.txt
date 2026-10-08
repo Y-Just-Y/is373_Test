@@ -1,0 +1,18 @@
+External TCP port check from the Mac
+Captured at 2026-10-08T17:55:42.134573+00:00
+Target: dedicated lab Droplet (address omitted)
+Command: nc -z -G 2 [LAB_HOST] PORT
+Only the nine requested ports were checked. No client IP, keys or raw connection logs collected.
+
+TCP 22: OPEN (exit=0; elapsed=0.09s)
+TCP 80: OPEN (exit=0; elapsed=0.09s)
+TCP 443: OPEN (exit=0; elapsed=0.08s)
+TCP 2375: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+TCP 2376: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+TCP 3000: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+TCP 8080: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+TCP 8082: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+TCP 8443: CLOSED_OR_FILTERED (exit=1; elapsed=2.01s)
+
+Expected public ports 22, 80, 443: PASS
+App, Docker API and internal proxy ports were not reachable at the time of this check.

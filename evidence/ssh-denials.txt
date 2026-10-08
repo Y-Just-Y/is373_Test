@@ -1,0 +1,5 @@
+Final SSH denial checks; no passwords or private key contents supplied.
+Root key login: exit 255
+root@[host redacted]: Permission denied (publickey).
+Password-only administrator login: exit 255
+is373_Test@[host redacted]: Permission denied (publickey).

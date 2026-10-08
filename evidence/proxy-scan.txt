@@ -1,0 +1,16 @@
+Traefik proxy image vulnerability scan
+Scanned at: 2026-10-08T17:52:19.599896+00:00
+Scanner: Trivy 0.75.0 (official archive SHA-256 verified by the repository installer)
+Image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
+Source: remote registry; no Docker socket access
+Scan: vulnerabilities; severity HIGH,CRITICAL; exit-code 1 on findings
+Scan exit code: 0
+HIGH findings: 0
+CRITICAL findings: 0
+OS detected: Alpine 3.24.2
+Analyzed package group: alpine; packages: 18; matching findings: 0
+Analyzed package group: gobinary; packages: 360; matching findings: 0
+Downloaded JSON report SHA-256: 168d8bd5bbd1c39eebd30002c5c4b6bce6c95221070fbb40905e8a37638bbba5
+The full JSON was downloaded to a local temporary file before this summary was written.
+This is a point-in-time result for the selected severities and the scanner database used.
+It does not establish absence of lower-severity vulnerabilities or verify proxy/host configuration.

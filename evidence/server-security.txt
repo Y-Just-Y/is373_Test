@@ -1,5 +1,5 @@
 LWDGY lab host security evidence
-Captured at 2026-10-08T17:47:29.407203+00:00
+Captured at 2026-10-08T17:54:56.561838+00:00
 Read-only inspection. Addresses, contact email, keys, passwords, client logs and registry credentials omitted.
 
 OS and active kernel
@@ -23,15 +23,18 @@ LOGO=ubuntu-logo
 UFW effective rules
 -------------------
 Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
 
-     To                         Action      From
-     --                         ------      ----
-[ 1] 22/tcp                     ALLOW IN    Anywhere
-[ 2] 80/tcp                     ALLOW IN    Anywhere
-[ 3] 443/tcp                    ALLOW IN    Anywhere
-[ 4] 22/tcp (v6)                ALLOW IN    Anywhere (v6)
-[ 5] 80/tcp (v6)                ALLOW IN    Anywhere (v6)
-[ 6] 443/tcp (v6)               ALLOW IN    Anywhere (v6)
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+80/tcp                     ALLOW IN    Anywhere
+443/tcp                    ALLOW IN    Anywhere
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+80/tcp (v6)                ALLOW IN    Anywhere (v6)
+443/tcp (v6)               ALLOW IN    Anywhere (v6)
 
 Listening TCP/UDP ports (addresses omitted)
 -------------------------------------------
@@ -184,7 +187,13 @@ Container restrictions /lwdgy-security-lab-app-production-1
 -----------------------------------------------------------
 {
   "name": "/lwdgy-security-lab-app-production-1",
-  "image": "ghcr.io/y-just-y/lwdgy-security-lab@sha256:78b351bdb1351e88d6261d543892966b23d478bbd8a14900b00956f728fe086e",
+  "image": "ghcr.io/y-just-y/is373_test@sha256:b1cc4a191976f1ea2a7ac36213dd1a1de82df38b02f080689c2650a2b833ea5d",
+  "revision_label": "0cb3adfb09e5a539080ca6736c6fb0eeb2644997",
+  "public_release_env": [
+    "APP_ENV=production",
+    "RELEASE_COMMIT=0cb3adfb09e5a539080ca6736c6fb0eeb2644997",
+    "PORT=8080"
+  ],
   "user": "10001:10001",
   "state": "running",
   "health": "healthy",
@@ -206,11 +215,45 @@ Container restrictions /lwdgy-security-lab-app-production-1
   ]
 }
 
+Container restrictions /lwdgy-security-lab-app-qa-1
+---------------------------------------------------
+{
+  "name": "/lwdgy-security-lab-app-qa-1",
+  "image": "ghcr.io/y-just-y/is373_test@sha256:684f0771a079e399baa64cd1cb9cc90fd7d05d2250cc832676e66eece405b878",
+  "revision_label": "c2dda8c0e8cc62ad6950b3d80ccaab651f9280b8",
+  "public_release_env": [
+    "RELEASE_COMMIT=c2dda8c0e8cc62ad6950b3d80ccaab651f9280b8",
+    "PORT=8080",
+    "APP_ENV=qa"
+  ],
+  "user": "10001:10001",
+  "state": "running",
+  "health": "healthy",
+  "readonly_rootfs": true,
+  "privileged": false,
+  "cap_drop": [
+    "ALL"
+  ],
+  "cap_add": null,
+  "security_opt": [
+    "no-new-privileges:true"
+  ],
+  "pids_limit": 100,
+  "memory": 134217728,
+  "published_ports": {},
+  "mounts": [],
+  "networks": [
+    "lwdgy-security-lab_qa"
+  ]
+}
+
 Container restrictions /lwdgy-security-lab-proxy-1
 --------------------------------------------------
 {
   "name": "/lwdgy-security-lab-proxy-1",
   "image": "traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c",
+  "revision_label": null,
+  "public_release_env": [],
   "user": "10000:10000",
   "state": "running",
   "health": "healthy",
