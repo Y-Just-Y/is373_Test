@@ -1,5 +1,5 @@
-# Official multi-platform Python 3.14.8 slim image, verified on 2026-10-08.
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
+# Official multi-platform Python 3.14.8 / Alpine 3.24 image, verified on 2026-10-08.
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72
 
 ARG RELEASE_COMMIT=local
 LABEL org.opencontainers.image.title="Asteri Deployment Lab" \
@@ -11,6 +11,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_ENV=qa \
     PORT=8080 \
     RELEASE_COMMIT=${RELEASE_COMMIT}
+
+# Apply available Alpine security updates. This application uses only Python's
+# standard library, so remove pip and its bundled third-party packages, including
+# ensurepip's reinstallable wheels, from the final filesystem.
+RUN apk upgrade --no-cache \
+    && python -m pip uninstall --yes pip \
+    && rm -rf /usr/local/lib/python3.14/ensurepip \
+    && python -c "import importlib.util; assert importlib.util.find_spec('pip') is None"
 
 WORKDIR /app
 COPY --chown=0:0 app/ ./app/

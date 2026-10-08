@@ -1,6 +1,6 @@
 # One-Droplet lab deployment
 
-These files are for a new Ubuntu 24.04 Droplet. They do not change the existing ASTERI storefront. Public DNS records must point `lwdgyasteri.com` and `dev.lwdgyasteri.com` (DNS is case-insensitive) at the new Droplet. Remove stale AAAA records unless the new IPv6 address is configured. DigitalOcean's cloud firewall should permit inbound TCP 22, 80 and 443 only, plus outbound traffic.
+These files deploy the lab on a new Ubuntu 24.04 Droplet. Public DNS records must point `lwdgyasteri.com` and `dev.lwdgyasteri.com` (DNS is case-insensitive) at the new Droplet. Remove stale AAAA records unless the new IPv6 address is configured. DigitalOcean's cloud firewall should permit inbound TCP 22, 80 and 443 only, plus outbound traffic.
 
 The trusted server files live in `/opt/lwdgy-security-lab`, owned by root. Traefik 3.7.14 is pinned by its official multi-platform digest. It uses fixed file routes with separate internal QA and production networks and has no Docker socket mount or dashboard. Only Traefik publishes ports. Each app runs as UID 10001 with a read-only filesystem, no Linux capabilities and no new privileges. Certificates persist in `acme/acme.json`, mode 0600, owned by Traefik's numeric identity. App images come from the public `ghcr.io/y-just-y/lwdgy-security-lab` package by digest; no registry credentials are needed.
 
@@ -71,7 +71,7 @@ python3 -m unittest discover -s deploy -p 'test_*.py' -v
 docker compose -f deploy/compose.yaml config --quiet
 ```
 
-The helper tests exercise injection denial, framing, filesystem trust, revision mismatch and rollback while mocking Docker. They do not claim a remote deployment or TLS issuance has happened. Perform the host and HTTPS checks above after setup.
+The helper tests exercise injection denial, framing, filesystem trust, revision mismatch and rollback while mocking Docker. Health tests use the actual application response body, verify the environment/revision contract, and check that the HTTPS targets and router domains agree. They do not claim a remote deployment or TLS issuance has happened. Perform the host and HTTPS checks above after setup.
 
 ## Primary references
 
