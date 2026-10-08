@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+security-reports/
+*.pem
+*.key
+id_ed25519*
+id_rsa*
+.DS_Store

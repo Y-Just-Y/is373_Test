@@ -1,0 +1,37 @@
+http:
+  routers:
+    qa:
+      rule: "Host(`dev.lwdgyasteri.com`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers]
+      service: qa
+      tls: {certResolver: letsencrypt}
+    production:
+      rule: "Host(`lwdgyasteri.com`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers]
+      service: production
+      tls: {certResolver: letsencrypt}
+  services:
+    qa:
+      loadBalancer:
+        servers: [{url: "http://app-qa:8080"}]
+    production:
+      loadBalancer:
+        servers: [{url: "http://app-production:8080"}]
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: no-referrer
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        customResponseHeaders:
+          Server: ""
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true

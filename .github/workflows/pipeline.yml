@@ -1,0 +1,222 @@
+name: Test, scan, build, and deploy
+
+on:
+  pull_request:
+    branches: [qa, main]
+  push:
+    branches: [qa, main]
+    paths-ignore:
+      - README.md
+      - deploy/README.md
+      - evidence/**
+  workflow_dispatch:
+    inputs:
+      demonstrate_test_failure:
+        description: Intentionally fail a unit test to prove build and deployment are blocked
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-lab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Tests and secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run application tests before building
+        run: python3 -m unittest discover -s tests -v
+      - name: Test deployment validation and rollback
+        run: python3 -m unittest discover -s deploy -p 'test_*.py' -v
+      - name: Check server setup shell syntax
+        run: bash -n deploy/bootstrap.sh deploy/finalize-ssh.sh deploy/reboot-if-required.sh
+      - name: Demonstrate that a failed unit test blocks deployment
+        if: github.event_name == 'workflow_dispatch' && inputs.demonstrate_test_failure
+        run: |
+          python3 - <<'PY'
+          import unittest
+          from app.main import Settings
+
+          class IntentionalGateFailure(unittest.TestCase):
+              def test_wrong_environment_expectation(self):
+                  self.assertEqual(Settings.from_environment({"APP_ENV": "qa"}).environment,
+                                   "production", "Intentional failure for the deployment gate demonstration")
+
+          unittest.main()
+          PY
+      - name: Install checksum-verified Trivy
+        run: bash .github/scripts/install-trivy.sh "$RUNNER_TEMP/trivy"
+      - name: Reject secrets in the working tree
+        run: |
+          mkdir -p security-reports
+          scan_status=0
+          "$RUNNER_TEMP/trivy/trivy" fs --scanners secret --skip-dirs .git \
+            --exit-code 1 --format json --output "$RUNNER_TEMP/secrets-raw.json" . || scan_status=$?
+          python3 - <<'PY'
+          import json, os
+          with open(os.environ["RUNNER_TEMP"] + "/secrets-raw.json") as source:
+              raw = json.load(source)
+          keep = ("RuleID", "Category", "Severity", "Title", "StartLine", "EndLine")
+          report = {"Results": [{"Target": result.get("Target"), "Secrets": [
+              {key: finding[key] for key in keep if key in finding}
+              for finding in result.get("Secrets", [])
+          ]} for result in raw.get("Results", [])]}
+          with open("security-reports/secrets.json", "w") as destination:
+              json.dump(report, destination, indent=2)
+          PY
+          rm -f "$RUNNER_TEMP/secrets-raw.json"
+          exit "$scan_status"
+      - name: Retain secret scan report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: secret-scan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: security-reports/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  image:
+    name: Build and scan the image
+    needs: tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the exact commit
+        run: |
+          set -euo pipefail
+          image="ghcr.io/y-just-y/lwdgy-security-lab:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf 'IMAGE_REF=%s\n' "$image" >> "$GITHUB_ENV"
+          docker build --pull \
+            --build-arg "RELEASE_COMMIT=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/Y-Just-Y/lwdgy-security-lab" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$image" .
+      - name: Verify the container runs with restricted privileges
+        run: |
+          set -euo pipefail
+          docker run --detach --name lab-ci --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 256m --cpus 0.5 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m \
+            --publish 127.0.0.1:8080:8080 \
+            --env APP_ENV=qa --env RELEASE_COMMIT="$GITHUB_SHA" "$IMAGE_REF"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/health > "$RUNNER_TEMP/health.json"; then
+              python3 -c 'import json, os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/health.json")); assert d["status"] == "ok"; assert d["environment"] == "qa"; assert d["revision"] == os.environ["GITHUB_SHA"]'
+              curl --fail --silent http://127.0.0.1:8080/ > /dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs lab-ci
+          exit 1
+      - name: Install checksum-verified Trivy
+        run: bash .github/scripts/install-trivy.sh "$RUNNER_TEMP/trivy"
+      - name: Reject HIGH and CRITICAL image vulnerabilities
+        run: |
+          mkdir -p security-reports
+          "$RUNNER_TEMP/trivy/trivy" image --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 --timeout 10m --format json \
+            --output security-reports/image.json "$IMAGE_REF"
+      - name: Retain image vulnerability report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-scan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: security-reports/
+          retention-days: 30
+          if-no-files-found: ignore
+      - name: Publish the verified image and require public pull access
+        id: publish
+        if: >-
+          github.event_name != 'pull_request' &&
+          (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/main') &&
+          github.repository == 'Y-Just-Y/lwdgy-security-lab'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE_REF"
+          reference=$(docker image inspect "$IMAGE_REF" --format '{{index .RepoDigests 0}}')
+          [[ "$reference" =~ ^ghcr.io/y-just-y/lwdgy-security-lab@sha256:[a-f0-9]{64}$ ]]
+          digest=${reference##*@}
+          built_id=$(docker image inspect "$IMAGE_REF" --format '{{.Id}}')
+          docker logout ghcr.io
+          anonymous_config=$(mktemp -d)
+          trap 'rm -rf "$anonymous_config"' EXIT
+          printf '{"auths":{}}\n' > "$anonymous_config/config.json"
+          DOCKER_CONFIG="$anonymous_config" docker pull "$reference"
+          pulled_id=$(docker image inspect "$reference" --format '{{.Id}}')
+          test "$built_id" = "$pulled_id"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'Source commit: `%s`\n\nImage: `%s`\n\nAnonymous pull: passed\n' \
+            "$GITHUB_SHA" "$reference" >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean up the runner container and registry credentials
+        if: always()
+        run: |
+          docker rm --force lab-ci || true
+          docker logout ghcr.io || true
+
+  deploy:
+    name: Deploy the verified digest
+    needs: [tests, image]
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/main') &&
+      github.repository == 'Y-Just-Y/lwdgy-security-lab'
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'qa' }}
+      url: ${{ github.ref == 'refs/heads/main' && 'https://lwdgyasteri.com' || 'https://dev.lwdgyasteri.com' }}
+    steps:
+      - name: Prepare a dedicated key and verified host key
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$RUNNER_TEMP/lab-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/lab-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/lab-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/lab-ssh/key" "$RUNNER_TEMP/lab-ssh/known_hosts"
+          ssh-keygen -l -f "$RUNNER_TEMP/lab-ssh/known_hosts" > /dev/null
+      - name: Deploy through the restricted SSH command
+        env:
+          DEPLOY_HOST: ${{ secrets.DROPLET_HOST }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+          APP_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'qa' }}
+          SITE_URL: ${{ github.ref == 'refs/heads/main' && 'https://lwdgyasteri.com' || 'https://dev.lwdgyasteri.com' }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          ssh -F /dev/null -p 22 -i "$RUNNER_TEMP/lab-ssh/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/lab-ssh/known_hosts" \
+            -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=15 \
+            "lab-deploy@$DEPLOY_HOST" "deploy $APP_ENV $IMAGE_DIGEST $GITHUB_SHA" < /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "$SITE_URL/health" > "$RUNNER_TEMP/deployed-health.json"
+          python3 -c 'import json, os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/deployed-health.json")); assert d["status"] == "ok"; assert d["environment"] == os.environ["APP_ENV"]; assert d["revision"] == os.environ["GITHUB_SHA"]'
+          printf 'Environment: `%s`\n\nSite: %s\n\nCommit: `%s`\n\nDigest: `%s`\n\nSSH: user=lab-deploy, port=22, StrictHostKeyChecking=yes, key=[redacted], host=[redacted]\n' \
+            "$APP_ENV" "$SITE_URL" "$GITHUB_SHA" "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the deployment key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/lab-ssh"

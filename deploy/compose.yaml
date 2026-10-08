@@ -1,0 +1,72 @@
+name: lwdgy-security-lab
+x-app: &app
+  restart: unless-stopped
+  read_only: true
+  user: "10001:10001"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+  pids_limit: 100
+  mem_limit: 128m
+  cpus: 0.50
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
+services:
+  proxy:
+    # Official multi-platform OCI index, verified 2026-10-08; review updates explicitly.
+    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
+    restart: unless-stopped
+    user: "10000:10000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["80:8080", "443:8443"]
+    volumes:
+      - ./traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./acme:/acme
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+    pids_limit: 100
+    mem_limit: 256m
+    cpus: 0.50
+    networks: [edge, qa, production]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  app-qa:
+    <<: *app
+    profiles: [qa]
+    # Uninitialized reference is never pulled: bootstrap starts only proxy.
+    image: ${QA_IMAGE:-ghcr.io/y-just-y/lwdgy-security-lab:uninitialized}
+    environment:
+      APP_ENV: qa
+      RELEASE_COMMIT: ${QA_COMMIT:-uninitialized}
+      PORT: "8080"
+    networks: [qa]
+  app-production:
+    <<: *app
+    profiles: [production]
+    image: ${PRODUCTION_IMAGE:-ghcr.io/y-just-y/lwdgy-security-lab:uninitialized}
+    environment:
+      APP_ENV: production
+      RELEASE_COMMIT: ${PRODUCTION_COMMIT:-uninitialized}
+      PORT: "8080"
+    networks: [production]
+networks:
+  edge: {}
+  qa:
+    internal: true
+  production:
+    internal: true

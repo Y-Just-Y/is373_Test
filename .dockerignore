@@ -1,0 +1,10 @@
+# Only the application and its public assets belong in the image.
+**
+!app/
+!app/**
+!site/
+!site/**
+!Dockerfile
+**/__pycache__/
+**/*.pyc
+**/.*
